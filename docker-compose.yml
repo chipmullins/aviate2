@@ -23,6 +23,9 @@ x-backend-env: &backend-env
   DB_USERNAME: aviate
   DB_PASSWORD: ${DB_PASSWORD:?Run ./setup.sh to create .env}
 
+  # Passwords: Argon2id (memory-hard). Laravel's defaults: 64 MB, 4 passes, 1 thread.
+  HASH_DRIVER: argon2id
+
   SESSION_DRIVER: database
   SESSION_LIFETIME: 120
   SESSION_ENCRYPT: "true"

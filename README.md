@@ -34,6 +34,8 @@ You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or D
 docker compose up --build   # first build takes a few minutes
 ```
 
+Passwords are hashed with Argon2id. If you ever switch `HASH_DRIVER`, reset the database (`docker compose down -v`): existing hashes won't verify under a different algorithm.
+
 Open **http://localhost:8080**.
 
 On Windows, run `./setup.sh` from Git Bash or WSL, or copy `.env.example` to `.env` and fill in the four secrets yourself. `APP_KEY` must be `base64:` followed by 32 random bytes, base64-encoded.
@@ -67,7 +69,7 @@ Built to be safe to show off:
 | Risk | How Aviate handles it |
 |---|---|
 | SQL injection | Every query goes through Laravel's query builder/Eloquent with bound parameters. Search escapes `%` and `_`. |
-| Password storage | bcrypt via Laravel's `hashed` cast. Minimum 8 characters with letters and numbers. |
+| Password storage | Argon2id (memory-hard, OWASP's first choice) via Laravel's `hashed` cast: 64 MB of memory and 4 passes per hash. Minimum 8 characters with letters and numbers. |
 | Session hijacking / CSRF | Sanctum SPA auth: HttpOnly, SameSite=Lax, encrypted session cookies, a CSRF token on every write, and a fresh session ID on login. |
 | Brute-force login | 5 attempts per email+IP per minute, plus per-IP limits on auth, posting and uploads. Proxy headers are only trusted when you configure `TRUSTED_PROXIES`, so the IP can't be faked. |
 | Account discovery | Login failures give the same message whether or not the email exists. |
