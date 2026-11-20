@@ -1,0 +1,110 @@
+<div class="page">
+  <div class="card shell" [class.has-thread]="username()">
+    <aside class="list" aria-label="Conversations">
+      <h2>Messages</h2>
+      @for (c of conversations(); track c.user.id) {
+        <a class="convo" [routerLink]="['/messages', c.user.username]" [class.on]="c.user.username === username()">
+          <app-avatar [user]="c.user" [size]="44" />
+          <span class="convo-main">
+            <span class="convo-top">
+              <strong>{{ c.user.full_name }}</strong>
+              <span class="faint">{{ c.last_message.created_at | timeAgo }}</span>
+            </span>
+            <span class="preview" [class.unread]="c.unread_count">
+              {{ c.last_message.sender_id === meId() ? 'You: ' : '' }}{{ c.last_message.body }}
+            </span>
+          </span>
+          @if (c.unread_count) {
+            <span class="badge">{{ c.unread_count }}</span>
+          }
+        </a>
+      } @empty {
+        <p class="muted pad">No conversations yet.</p>
+      }
+
+      @if (newPeople().length) {
+        <h3 class="card-title start">Start a conversation</h3>
+        @for (f of newPeople().slice(0, 8); track f.id) {
+          <a class="convo small" [routerLink]="['/messages', f.username]">
+            <app-avatar [user]="f" [size]="32" />
+            <span class="convo-main"><strong>{{ f.full_name }}</strong></span>
+          </a>
+        }
+      }
+    </aside>
+
+    <section class="thread" aria-label="Conversation">
+      @if (partner(); as p) {
+        <header class="thread-head">
+          <a class="back btn btn-quiet btn-sm" routerLink="/messages" aria-label="Back to conversations">←</a>
+          <a [routerLink]="['/u', p.username]"><app-avatar [user]="p" [size]="40" /></a>
+          <div>
+            <a class="name" [routerLink]="['/u', p.username]">{{ p.full_name }}</a>
+            <div class="faint">{{ p.airline }}</div>
+          </div>
+        </header>
+
+        <div class="scroller" #scroller aria-live="polite">
+          @if (olderCursor()) {
+            <button class="link-btn older" type="button" (click)="loadPage()" [disabled]="loadingThread()">
+              {{ loadingThread() ? 'Loading…' : 'Load earlier messages' }}
+            </button>
+          }
+          @for (m of messages(); track m.id; let i = $index) {
+            @if (newDay(i)) {
+              <div class="day"><span>{{ dayLabel(m.created_at) }}</span></div>
+            }
+            <div class="msg" [class.mine]="m.sender_id === meId()">
+              <div class="bubble">
+                <p>{{ m.body }}</p>
+                <span class="time">{{ clock(m.created_at) }}</span>
+              </div>
+              @if (m.sender_id === meId()) {
+                <button class="del" type="button" (click)="remove(m)" aria-label="Delete message">✕</button>
+              }
+            </div>
+          } @empty {
+            @if (!loadingThread()) {
+              <div class="empty">
+                <div class="empty-icon" aria-hidden="true">👋</div>
+                Say hello to {{ p.first_name }}.
+              </div>
+            }
+          }
+        </div>
+
+        @if (canMessage()) {
+          <form class="compose" (submit)="send($event)">
+            <label class="sr-only" for="msg-input">Message {{ p.first_name }}</label>
+            <textarea
+              id="msg-input"
+              class="textarea"
+              rows="1"
+              maxlength="5000"
+              placeholder="Message {{ p.first_name }}…"
+              [ngModel]="draft()"
+              (ngModelChange)="draft.set($event)"
+              (keydown)="onKeydown($event)"
+              name="body"
+            ></textarea>
+            <button class="btn" type="submit" [disabled]="!draft().trim() || sending()">Send</button>
+          </form>
+        } @else {
+          <div class="alert alert-info locked">
+            You can only message friends. <a [routerLink]="['/u', p.username]">Add {{ p.first_name }} as a friend</a> to chat.
+          </div>
+        }
+      } @else if (partnerMissing()) {
+        <div class="empty">That person couldn’t be found.</div>
+      } @else if (username()) {
+        <div class="spinner" aria-label="Loading conversation"></div>
+      } @else {
+        <div class="empty pick">
+          <div class="empty-icon" aria-hidden="true">✉️</div>
+          <h3>Your messages</h3>
+          <p>Pick a conversation, or start one with a friend.</p>
+        </div>
+      }
+    </section>
+  </div>
+</div>

@@ -1,0 +1,45 @@
+:host {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 500px at 0% 100%, rgba(245, 165, 36, 0.28), transparent 60%),
+    linear-gradient(160deg, #0b1b3a 0%, #13294f 55%, #1e3f7a 100%);
+  color: #fff;
+  padding: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font: 700 1.6rem var(--font-display);
+  }
+  h1 { font-size: 2.6rem; font-weight: 600; max-width: 14ch; margin-top: 40px; }
+  p { color: rgba(255, 255, 255, 0.78); font-size: 1.05rem; max-width: 42ch; }
+  .airlines { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .airlines span {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font: 500 0.82rem var(--font-display);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .trail {
+    position: absolute;
+    right: -80px;
+    top: 12%;
+    width: 520px;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 900px) {
+  :host {
+    padding: 32px 24px;
+    h1 { font-size: 1.9rem; margin-top: 18px; }
+    .trail { display: none; }
+  }
+}

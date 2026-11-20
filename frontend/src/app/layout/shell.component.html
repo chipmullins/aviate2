@@ -1,0 +1,92 @@
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="inner">
+    <a class="brand" routerLink="/" aria-label="Aviate home">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="#f5a524" />
+        <path d="M6 18.5 26 9l-5.2 15.2-3.6-5.8-5.6 2.4 2.6-4.2L6 18.5Z" fill="#0b1b3a" />
+      </svg>
+      <span>Aviate</span>
+    </a>
+
+    <form class="search" role="search" (submit)="submitSearch($event)">
+      <label class="sr-only" for="top-search">Search crew members</label>
+      <input
+        id="top-search"
+        type="search"
+        placeholder="Search crew…"
+        autocomplete="off"
+        [ngModel]="query()"
+        (ngModelChange)="onType($event)"
+        (focus)="searchOpen.set(true)"
+        name="q"
+      />
+      @if (searchOpen() && query().trim().length >= 2) {
+        <div class="dropdown" role="listbox">
+          @for (u of results(); track u.id) {
+            <a class="result" role="option" [routerLink]="['/u', u.username]" (click)="openResult()">
+              <app-avatar [user]="u" [size]="34" />
+              <span>
+                <strong>{{ u.full_name }}</strong>
+                <span class="faint">
+                  {{ u.airline }}
+                  @if (u.mutual_friends_count) {
+                    · {{ u.mutual_friends_count }} mutual
+                  }
+                </span>
+              </span>
+            </a>
+          } @empty {
+            <div class="none faint">No one matches “{{ query() }}”.</div>
+          }
+          <button class="see-all" type="submit">See all results</button>
+        </div>
+      }
+    </form>
+
+    <nav class="icons" aria-label="Main">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" title="Home">
+        <span aria-hidden="true">🏠</span><span class="sr-only">Home</span>
+      </a>
+      <a routerLink="/messages" routerLinkActive="active" title="Messages">
+        <span aria-hidden="true">✉️</span><span class="sr-only">Messages</span>
+        @if (counts.counts().messages) {
+          <span class="badge">{{ counts.counts().messages }}</span>
+        }
+      </a>
+      <a routerLink="/notifications" routerLinkActive="active" title="Notifications">
+        <span aria-hidden="true">🔔</span><span class="sr-only">Notifications</span>
+        @if (counts.counts().notifications) {
+          <span class="badge">{{ counts.counts().notifications }}</span>
+        }
+      </a>
+      <a routerLink="/friends" routerLinkActive="active" title="Friend requests">
+        <span aria-hidden="true">👥</span><span class="sr-only">Friends</span>
+        @if (counts.counts().friend_requests) {
+          <span class="badge">{{ counts.counts().friend_requests }}</span>
+        }
+      </a>
+    </nav>
+
+    @if (auth.user(); as me) {
+      <div class="me">
+        <button class="me-btn" type="button" (click)="menuOpen.set(!menuOpen())" [attr.aria-expanded]="menuOpen()" aria-haspopup="menu">
+          <app-avatar [user]="me" [size]="34" />
+          <span class="me-name">{{ me.first_name }}</span>
+        </button>
+        @if (menuOpen()) {
+          <div class="menu" role="menu">
+            <a role="menuitem" [routerLink]="['/u', me.username]" (click)="menuOpen.set(false)">Your profile</a>
+            <a role="menuitem" routerLink="/settings" (click)="menuOpen.set(false)">Settings</a>
+            <button role="menuitem" type="button" (click)="logout()">Log out</button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</header>
+
+<main id="main">
+  <router-outlet />
+</main>

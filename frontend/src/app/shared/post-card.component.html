@@ -1,0 +1,101 @@
+@let p = post();
+<article class="card post">
+  <header class="head">
+    <a [routerLink]="['/u', p.author.username]" tabindex="-1" aria-hidden="true">
+      <app-avatar [user]="p.author" [size]="44" />
+    </a>
+    <div class="who">
+      <div class="names">
+        <a class="name" [routerLink]="['/u', p.author.username]">{{ p.author.full_name }}</a>
+        @if (p.wall_user; as wall) {
+          <span class="arrow" aria-label="posted on">▸</span>
+          <a class="name" [routerLink]="['/u', wall.username]">{{ wall.full_name }}</a>
+        }
+      </div>
+      <div class="faint">
+        @if (p.author.airline) {
+          <span>{{ p.author.airline }} · </span>
+        }
+        <a class="when" [routerLink]="['/posts', p.id]">
+          <time [attr.datetime]="p.created_at">{{ p.created_at | timeAgo }}</time>
+        </a>
+      </div>
+    </div>
+
+    @if (p.can_delete) {
+      @if (confirmingDelete()) {
+        <div class="confirm">
+          <span class="faint">Delete?</span>
+          <button class="btn btn-danger btn-sm" type="button" (click)="remove()">Delete</button>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="confirmingDelete.set(false)">Cancel</button>
+        </div>
+      } @else {
+        <button class="btn btn-quiet btn-sm" type="button" (click)="confirmingDelete.set(true)" aria-label="Delete post">✕</button>
+      }
+    }
+  </header>
+
+  <app-post-body [text]="p.body" />
+
+  @if (p.image_url) {
+    <img class="photo" [src]="p.image_url" alt="Photo shared by {{ p.author.full_name }}" loading="lazy" />
+  }
+
+  <footer class="actions">
+    <button
+      class="action"
+      type="button"
+      [class.on]="isLiked()"
+      [attr.aria-pressed]="isLiked()"
+      (click)="toggleLike()"
+    >
+      <span aria-hidden="true">{{ isLiked() ? '♥' : '♡' }}</span>
+      {{ likeCount() }} {{ likeCount() === 1 ? 'like' : 'likes' }}
+    </button>
+    <button class="action" type="button" [attr.aria-expanded]="showComments()" (click)="toggleComments()">
+      <span aria-hidden="true">💬</span>
+      {{ totalComments() }} {{ totalComments() === 1 ? 'comment' : 'comments' }}
+    </button>
+  </footer>
+
+  @if (showComments()) {
+    <section class="comments" aria-label="Comments">
+      @for (c of comments(); track c.id) {
+        <div class="comment">
+          <a [routerLink]="['/u', c.author.username]" tabindex="-1" aria-hidden="true">
+            <app-avatar [user]="c.author" [size]="32" />
+          </a>
+          <div class="bubble">
+            <a class="name" [routerLink]="['/u', c.author.username]">{{ c.author.full_name }}</a>
+            <span class="faint"> · {{ c.created_at | timeAgo }}</span>
+            <p>{{ c.body }}</p>
+          </div>
+          @if (c.can_delete) {
+            <button class="btn btn-quiet btn-sm" type="button" (click)="removeComment(c)" aria-label="Delete comment">✕</button>
+          }
+        </div>
+      }
+
+      @if (commentsLoading()) {
+        <div class="spinner" aria-label="Loading comments"></div>
+      } @else if (commentsCursor()) {
+        <button class="link-btn more" type="button" (click)="loadComments()">Show more comments</button>
+      }
+
+      <form class="reply" (submit)="addComment($event)">
+        <label class="sr-only" [for]="'reply-' + p.id">Write a comment</label>
+        <input
+          class="input"
+          [id]="'reply-' + p.id"
+          placeholder="Write a comment…"
+          maxlength="2000"
+          [ngModel]="draft()"
+          (ngModelChange)="draft.set($event)"
+          name="body"
+          autocomplete="off"
+        />
+        <button class="btn btn-sm" type="submit" [disabled]="!draft().trim() || sending()">Reply</button>
+      </form>
+    </section>
+  }
+</article>

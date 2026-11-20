@@ -1,0 +1,88 @@
+.post { padding: 18px 18px 8px; }
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.who { flex: 1; min-width: 0; }
+
+.names {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.arrow { color: var(--ink-faint); font-size: 0.8rem; }
+.when { color: inherit; }
+
+.confirm { display: flex; align-items: center; gap: 6px; }
+
+.photo {
+  margin-top: 12px;
+  border-radius: var(--radius-sm);
+  max-height: 560px;
+  width: 100%;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 4px;
+}
+
+.action {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  font: 500 0.9rem var(--font-display);
+  color: var(--ink-soft);
+  cursor: pointer;
+
+  &:hover { background: var(--surface-2); color: var(--ink); }
+  &.on { color: #d6336c; }
+}
+
+.comments {
+  border-top: 1px solid var(--line);
+  padding: 12px 0 10px;
+}
+
+.comment {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+
+  .bubble {
+    flex: 1;
+    background: var(--surface-2);
+    border-radius: 12px;
+    padding: 8px 12px;
+  }
+
+  p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+}
+
+.more { margin: 0 0 10px 42px; font-size: 0.88rem; }
+
+.reply {
+  display: flex;
+  gap: 8px;
+  .input { border-radius: 999px; padding: 8px 14px; }
+}

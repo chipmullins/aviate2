@@ -1,0 +1,127 @@
+# Aviate: run the whole stack with `docker compose up --build`.
+# Create .env first with ./setup.sh (it generates the secrets).
+#
+#   web     nginx: serves the Angular app on http://localhost:8080 and routes /api and /app
+#   api     Laravel (php-fpm)
+#   queue   Laravel queue worker (sends notifications and messages to Reverb)
+#   reverb  WebSocket server for live messages and notifications
+#   db      PostgreSQL 17 (not reachable from outside Docker)
+
+x-backend-env: &backend-env
+  APP_NAME: Aviate
+  APP_ENV: ${APP_ENV:-local}
+  APP_KEY: ${APP_KEY:?Run ./setup.sh to create .env}
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_URL: ${APP_URL:-http://localhost:8080}
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: 5432
+  DB_DATABASE: aviate
+  DB_USERNAME: aviate
+  DB_PASSWORD: ${DB_PASSWORD:?Run ./setup.sh to create .env}
+
+  SESSION_DRIVER: database
+  SESSION_LIFETIME: 120
+  SESSION_ENCRYPT: "true"
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-false}
+  SESSION_SAME_SITE: lax
+  # Hosts (with port) the browser uses to reach Aviate. Cookie login only works from these.
+  SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-localhost:8080,localhost:4200}
+
+  CACHE_STORE: database
+  QUEUE_CONNECTION: database
+  FILESYSTEM_DISK: public
+
+  # The API and queue talk to Reverb directly inside Docker; browsers go through nginx at /app.
+  BROADCAST_CONNECTION: reverb
+  REVERB_APP_ID: aviate
+  REVERB_APP_KEY: ${REVERB_APP_KEY:?Run ./setup.sh to create .env}
+  REVERB_APP_SECRET: ${REVERB_APP_SECRET:?Run ./setup.sh to create .env}
+  REVERB_HOST: reverb
+  REVERB_PORT: 8080
+  REVERB_SCHEME: http
+  # Host names (no port) allowed to open WebSockets.
+  REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-localhost}
+
+  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+
+  AVIATE_ALLOWED_EMAIL_DOMAINS: ${AVIATE_ALLOWED_EMAIL_DOMAINS:-united.com,delta.com,aa.com,allegiant.com,suncountry.com,jetblue.com,southwest.com}
+
+x-backend: &backend
+  build:
+    context: ./backend
+    args:
+      COMPOSER_NO_DEV: ${COMPOSER_NO_DEV:-0}
+  image: aviate-api
+  restart: unless-stopped
+  volumes:
+    - uploads:/var/www/html/storage/app/public
+  environment: *backend-env
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aviate
+      POSTGRES_USER: aviate
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Run ./setup.sh to create .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aviate -d aviate"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    <<: *backend
+    command: php-fpm
+    environment:
+      <<: *backend-env
+      # Only this container runs migrations (and the demo data, if enabled).
+      RUN_MIGRATIONS: "true"
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Healthy once migrations have run.
+      test: ["CMD-SHELL", "php artisan migrate:status > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
+  queue:
+    <<: *backend
+    command: php artisan queue:work --sleep=1 --tries=3 --max-time=3600
+    depends_on:
+      api:
+        condition: service_healthy
+
+  reverb:
+    <<: *backend
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    image: aviate-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    volumes:
+      - uploads:/var/www/storage:ro
+
+volumes:
+  pgdata:
+  uploads:
