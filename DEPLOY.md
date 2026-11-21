@@ -1,152 +1,132 @@
-# Deploying the public demo to EC2
+# Deploying Aviate
 
-This puts Aviate online at **https://aviate.glofly.app** on a single small EC2 instance, with HTTPS and demo mode on. Every command below runs on the server unless it says otherwise.
+These are my notes from putting the demo on AWS at https://aviate.glofly.app. It runs on one small EC2 instance with Docker Compose, and Caddy handles HTTPS.
 
-What you end up with:
+## The server
+
+I used a t3.micro running Ubuntu 24.04 with a 20 GB disk. In the security group I opened ports 80 and 443 to everyone and kept SSH limited to my own IP. Port 80 has to stay open even though the site is HTTPS only: Let's Encrypt uses it to verify the domain, and Caddy uses it to redirect to HTTPS.
+
+I allocated an Elastic IP and associated it with the instance so the address doesn't change when the instance restarts. Then I added an A record for `aviate` in the `glofly.app` DNS, pointing at that IP. Before going further, it's worth checking that it resolves:
 
 ```
-Visitor ──HTTPS──▶ Caddy (certificate, port 443) ──▶ web (nginx) ──▶ api (Laravel) ──▶ db (PostgreSQL)
-                                                                 └─▶ reverb (live updates)
-                   + queue (sends live events) + scheduler (nightly demo reset)
+nslookup aviate.glofly.app
 ```
 
-## 1. AWS setup (console)
+## Setting up the instance
 
-1. **Instance:** EC2 → Launch instance → **Ubuntu 24.04**, **t3.micro**, **20 GB gp3** storage, with a key pair you've saved.
-2. **Security group (inbound rules):**
-
-   | Type | Port | Source |
-   |---|---|---|
-   | SSH | 22 | My IP |
-   | HTTP | 80 | Anywhere (0.0.0.0/0) |
-   | HTTPS | 443 | Anywhere (0.0.0.0/0) |
-
-   Port 80 has to be open even though the site is HTTPS-only: Let's Encrypt uses it to check you own the domain, and Caddy uses it to redirect to HTTPS.
-3. **Elastic IP:** EC2 → Network & Security → Elastic IPs → Allocate → Actions → Associate with the instance.
-4. **DNS:** wherever `glofly.app`'s DNS lives (Route 53 hosted zone or your registrar), add:
-
-   | Name | Type | Value | TTL |
-   |---|---|---|---|
-   | `aviate` | A | your Elastic IP | 300 |
-
-   Check from your own computer that it points at the server before step 5: `nslookup aviate.glofly.app`.
-
-## 2. Prepare the server
-
-Connect (EC2 → Instances → Connect, or `ssh -i your-key.pem ubuntu@YOUR_ELASTIC_IP`), then:
+I connected through Session Manager, which logs you in as `ssm-user` rather than `ubuntu`, in a plain `sh` shell outside your home folder. So the first thing I do in each session is:
 
 ```bash
-# Docker
+bash
+cd ~
+```
+
+Install Docker:
+
+```bash
 curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker ubuntu
-exit    # log out and back in so the docker group applies
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
+The `usermod` line matters. Docker kept giving me "permission denied" until I realized the install had added `ubuntu` to the docker group, not `ssm-user`. Using `$USER` covers whichever account you're logged in as.
+
+A t3.micro only has 1 GB of memory, which isn't enough to build the Angular app, so I added 2 GB of swap:
+
 ```bash
-# 2 GB of swap: a t3.micro's 1 GB isn't enough to build the app
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-
-# Install security updates automatically (Ubuntu usually has this on already)
-sudo apt-get install -y unattended-upgrades
 ```
 
-## 3. Get the code
+## Getting the code and configuring it
 
 ```bash
 git clone https://github.com/chipmullins/aviate2.git
 cd aviate2
+./setup.sh
 ```
 
-If the repo is private, GitHub will ask for a username and password. Use your GitHub username and a [fine-grained personal access token](https://github.com/settings/personal-access-tokens) with read-only **Contents** access to `aviate2` as the password.
+`setup.sh` creates `.env` and fills in the app key, database password and Reverb keys with random values. It won't overwrite an existing `.env`.
 
-## 4. Configure
+The defaults are for running locally, so the server needs a few changes:
 
 ```bash
-./setup.sh      # creates .env with fresh random secrets
-nano .env
-```
+sed -i \
+  -e 's|^DEMO_MODE=.*|DEMO_MODE=true|' \
+  -e 's|^APP_URL=.*|APP_URL=https://aviate.glofly.app|' \
+  -e 's|^SANCTUM_STATEFUL_DOMAINS=.*|SANCTUM_STATEFUL_DOMAINS=aviate.glofly.app|' \
+  -e 's|^REVERB_ALLOWED_ORIGINS=.*|REVERB_ALLOWED_ORIGINS=aviate.glofly.app|' \
+  -e 's|^SESSION_SECURE_COOKIE=.*|SESSION_SECURE_COOKIE=true|' \
+  -e 's|^APP_ENV=.*|APP_ENV=production|' \
+  .env
 
-Change these lines (leave the secrets alone):
-
-```ini
+cat >> .env <<'EOF'
 COMPOSE_PROFILES=https
 AVIATE_DOMAIN=aviate.glofly.app
 WEB_BIND=127.0.0.1
-
-DEMO_MODE=true
-DEMO_RESET_AT=04:00
-
-APP_URL=https://aviate.glofly.app
-WEB_PORT=8080
-SANCTUM_STATEFUL_DOMAINS=aviate.glofly.app
-REVERB_ALLOWED_ORIGINS=aviate.glofly.app
-SESSION_SECURE_COOKIE=true
-
-APP_ENV=production
-APP_DEBUG=false
-SEED_DEMO_DATA=true
-COMPOSER_NO_DEV=1
+EOF
 ```
 
-In nano: Ctrl+O, Enter to save, Ctrl+X to exit.
+What these do:
+- `COMPOSE_PROFILES=https` turns on the Caddy container.
+- `AVIATE_DOMAIN` is the domain Caddy gets a certificate for.
+- `WEB_BIND=127.0.0.1` keeps nginx private to the server, so all outside traffic has to come through Caddy.
+- `DEMO_MODE=true` adds the one-click demo logins, locks the sample accounts' settings, and resets everything nightly.
 
-What each setting does:
-- `COMPOSE_PROFILES=https` starts Caddy, which gets the HTTPS certificate for `AVIATE_DOMAIN`.
-- `WEB_BIND=127.0.0.1` keeps nginx reachable only from the server itself, so everything from outside goes through Caddy.
-- `DEMO_MODE=true` adds the one-click "Try the demo" buttons, locks the sample accounts' settings, and wipes and re-seeds everything nightly at `DEMO_RESET_AT` (Eastern time).
+Check them before starting anything:
 
-## 5. Start it
+```bash
+grep -E '^(COMPOSE_PROFILES|AVIATE_DOMAIN|WEB_BIND|DEMO_MODE|APP_URL)=' .env
+```
+
+I learned that one the hard way. My first start came up without Caddy because these settings never made it into `.env`, and `docker compose ps` showed nginx open on `0.0.0.0` with no `caddy` container at all.
+
+## Starting it
 
 ```bash
 docker compose up -d --build
 ```
 
-The first build takes **15–20 minutes** on a t3.micro: it installs the PHP and Node packages and builds the Angular app, mostly in swap. Watch progress with:
+The first build took around 15 to 20 minutes on the t3.micro, mostly the Angular build running in swap. After that, restarts take seconds.
 
 ```bash
-docker compose ps          # every service should say "running" (api: "healthy")
+docker compose ps
 docker compose logs -f caddy
 ```
 
-When Caddy logs `certificate obtained successfully`, open **https://aviate.glofly.app**.
+Everything should be running, with `api` marked healthy. Once Caddy logs that it obtained the certificate, the site is live.
 
-## 6. Check it works
+To run the backend tests on the server:
 
-- [ ] The padlock shows in the browser, and `http://aviate.glofly.app` redirects to `https://`.
-- [ ] "Try the demo" → **Maya Chen** signs you in to a feed with posts.
-- [ ] In a private window, try the demo as **Marcus Webb** and message Maya: it appears in Maya's window without refreshing.
-- [ ] Settings shows "locked on shared demo accounts".
-- [ ] The backend tests pass: `docker compose run --rm api php artisan test` (only works if you built with `COMPOSER_NO_DEV=0`; it's easier to run them on your own computer).
+```bash
+docker compose run --rm api php artisan test
+```
 
-## Everyday operations
+## Day to day
 
-| Task | Command (in `~/aviate2`) |
-|---|---|
-| Deploy new code | `git pull && docker compose up -d --build` |
-| See what's running | `docker compose ps` |
-| Logs | `docker compose logs -f api` (or `caddy`, `web`, `reverb`, `queue`, `scheduler`) |
-| Reset the demo now | `docker compose exec api php artisan aviate:reset-demo --force` |
-| Restart everything | `docker compose restart` |
-| Stop (keeps data) | `docker compose down` |
-| Free disk space from old builds | `docker system prune -f` |
+Deploying changes:
 
-The nightly reset deletes every account, post, message and upload, then restores the sample crew. It only runs when `DEMO_MODE=true`; the command refuses to run otherwise.
+```bash
+cd ~/aviate2
+git pull
+docker compose up -d --build
+```
 
-## Troubleshooting
+Some other commands I use:
 
-| Symptom | Likely cause |
-|---|---|
-| Caddy logs certificate errors / "timeout during connect" | DNS doesn't point at the Elastic IP yet, or port 80/443 isn't open in the security group. Fix, then `docker compose restart caddy`. |
-| Browser says the site can't be reached | Same as above; also check `docker compose ps` shows `caddy` running. |
-| Login spins, then "Session expired" / 419 | `SANCTUM_STATEFUL_DOMAINS` must exactly match the address in the browser (`aviate.glofly.app`). Change `.env`, then `docker compose up -d`. |
-| Messages only show after refreshing | `REVERB_ALLOWED_ORIGINS` must be `aviate.glofly.app`. Check `docker compose logs reverb`. |
-| Build stops with "Killed" | Out of memory: check the swap is on (`free -h` shows 2.0G under Swap). |
-| `api` never becomes healthy | `docker compose logs api` shows the error; send it over. |
+```bash
+docker compose logs -f api          # API logs (or caddy, reverb, queue, scheduler)
+docker compose exec api php artisan aviate:reset-demo --force   # reset the demo now
+docker compose restart              # restart everything
+docker system prune -f              # clear out old build images
+```
 
-## Costs (US East, on-demand)
+The demo resets itself every night at 4 AM Eastern. The reset command only works when `DEMO_MODE=true`, so it can't wipe a real database by accident.
 
-About **$13 a month** if left running: t3.micro ≈ $7.60, public IPv4 ≈ $3.65, 20 GB disk ≈ $1.60. New AWS accounts' free credits cover this.
+## If something's wrong
 
-To take the demo down completely, terminate the instance **and release the Elastic IP** (an unattached Elastic IP still costs $0.005/hour), then delete the `aviate` DNS record.
+- **Caddy can't get a certificate:** DNS isn't pointing at the Elastic IP yet, or port 80 or 443 is closed in the security group. Fix it, then `docker compose restart caddy`.
+- **Login fails or says the session expired:** `SANCTUM_STATEFUL_DOMAINS` has to match the domain in the browser exactly.
+- **Messages only show up after a refresh:** check `REVERB_ALLOWED_ORIGINS`, and look at `docker compose logs reverb`.
+- **The build gets killed:** it ran out of memory. Make sure swap is on with `free -h`.
