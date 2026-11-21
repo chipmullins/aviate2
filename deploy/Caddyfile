@@ -1,0 +1,14 @@
+# HTTPS front door for a public Aviate server.
+# Caddy gets and renews the certificate for AVIATE_DOMAIN from Let's Encrypt automatically,
+# redirects http:// to https://, and passes everything (WebSockets included) to the web container.
+{$AVIATE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# .app domains are HTTPS-only in browsers anyway; this covers any other domain too.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy web:80
+}

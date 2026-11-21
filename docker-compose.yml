@@ -5,7 +5,9 @@
 #   api     Laravel (php-fpm)
 #   queue   Laravel queue worker (sends notifications and messages to Reverb)
 #   reverb  WebSocket server for live messages and notifications
+#   scheduler  runs timed jobs (the nightly demo reset)
 #   db      PostgreSQL 17 (not reachable from outside Docker)
+#   caddy   HTTPS for a public server; only starts with COMPOSE_PROFILES=https (see DEPLOY.md)
 
 x-backend-env: &backend-env
   APP_NAME: Aviate
@@ -50,6 +52,10 @@ x-backend-env: &backend-env
   REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-localhost}
 
   TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+
+  # Public demo: one-click demo logins, demo accounts can't be changed, everything resets nightly.
+  DEMO_MODE: ${DEMO_MODE:-false}
+  DEMO_RESET_AT: ${DEMO_RESET_AT:-04:00}
 
   AVIATE_ALLOWED_EMAIL_DOMAINS: ${AVIATE_ALLOWED_EMAIL_DOMAINS:-united.com,delta.com,aa.com,allegiant.com,suncountry.com,jetblue.com,southwest.com}
 
@@ -113,6 +119,13 @@ services:
       api:
         condition: service_healthy
 
+  scheduler:
+    <<: *backend
+    command: php artisan schedule:work
+    depends_on:
+      api:
+        condition: service_healthy
+
   web:
     build: ./frontend
     image: aviate-web
@@ -121,10 +134,31 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "${WEB_PORT:-8080}:80"
+      # On a public server set WEB_BIND=127.0.0.1 so only Caddy (and the server itself) can reach it.
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"
     volumes:
       - uploads:/var/www/storage:ro
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      # e.g. aviate.glofly.app (Caddy refuses to start if this is empty).
+      AVIATE_DOMAIN: ${AVIATE_DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # certificates: keep across rebuilds (Let's Encrypt has rate limits)
+      - caddy_config:/config
 
 volumes:
   pgdata:
   uploads:
+  caddy_data:
+  caddy_config:

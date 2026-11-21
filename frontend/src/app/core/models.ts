@@ -11,6 +11,19 @@ export interface User {
 export interface Me extends User {
   email: string;
   joined_at: string;
+  /** A shared demo account on a demo server: its settings are locked. */
+  is_demo?: boolean;
+}
+
+export interface DemoAccount extends User {
+  blurb: string;
+}
+
+export interface DemoInfo {
+  enabled: boolean;
+  reset_at?: string;
+  time_zone?: string;
+  accounts: DemoAccount[];
 }
 
 export type FriendshipStatus = 'self' | 'friends' | 'request_sent' | 'request_received' | 'none';

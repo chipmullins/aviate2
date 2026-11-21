@@ -4,6 +4,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { routes } from './app.routes';
 import { AuthService } from './core/auth.service';
 import { CountsService } from './core/counts.service';
+import { DemoService } from './core/demo.service';
 import { apiInterceptor } from './core/http.interceptor';
 
 export const appConfig: ApplicationConfig = {
@@ -18,7 +19,7 @@ export const appConfig: ApplicationConfig = {
     // Find out who's signed in before the first page renders, and start the badge counts / live updates.
     provideAppInitializer(() => {
       inject(CountsService);
-      return inject(AuthService).ensureLoaded().then(() => undefined);
+      return Promise.all([inject(AuthService).ensureLoaded(), inject(DemoService).load()]).then(() => undefined);
     }),
   ],
 };

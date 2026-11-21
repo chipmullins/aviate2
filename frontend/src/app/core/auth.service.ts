@@ -39,6 +39,15 @@ export class AuthService {
     );
   }
 
+  /** One-click sign-in as a sample crew member (demo servers only). */
+  demoLogin(username: string): Observable<Me> {
+    return this.api.csrf().pipe(
+      switchMap(() => this.api.demoLogin(username)),
+      map((r) => r.data),
+      tap((me) => this.setUser(me)),
+    );
+  }
+
   register(body: Record<string, string>): Observable<Me> {
     return this.api.csrf().pipe(
       switchMap(() => this.api.register(body)),

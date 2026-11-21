@@ -1,6 +1,15 @@
 <div class="page narrow stack">
   <h1>Settings</h1>
 
+  @if (locked()) {
+    <div class="alert alert-info" role="note">
+      Settings are locked on shared demo accounts so the next visitor finds them the same way.
+      <a routerLink="/register">Create your own account</a> with any made-up airline email (like you&#64;jetblue.com) to try them.
+    </div>
+  }
+
+  <fieldset class="lock" [disabled]="locked()">
+
   <section class="card" aria-labelledby="photo-title">
     <h2 id="photo-title">Profile photo</h2>
     <div class="photo">
@@ -114,4 +123,5 @@
       <button class="btn btn-ghost" type="button" (click)="closing.set(true)">Close account…</button>
     }
   </section>
+  </fieldset>
 </div>

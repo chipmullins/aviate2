@@ -1,5 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ImageCroppedEvent, ImageCropperComponent } from 'ngx-image-cropper';
 import { Api } from '../core/api.service';
 import { AuthService, errorMessage, fieldErrors } from '../core/auth.service';
@@ -11,7 +12,7 @@ const matchPasswords = (g: AbstractControl): ValidationErrors | null =>
 
 @Component({
   selector: 'app-settings-page',
-  imports: [ReactiveFormsModule, Avatar, ImageCropperComponent],
+  imports: [ReactiveFormsModule, Avatar, ImageCropperComponent, RouterLink],
   templateUrl: './settings.page.html',
   styles: `
     .photo { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
@@ -20,6 +21,9 @@ const matchPasswords = (g: AbstractControl): ValidationErrors | null =>
     .danger { border-color: #f3c4c4; }
     .danger h2 { color: var(--danger); }
     .actions { display: flex; gap: 8px; }
+    .lock { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+    .lock:disabled { opacity: 0.6; }
+    .lock:disabled label.btn { pointer-events: none; }
   `,
 })
 export class SettingsPage {
@@ -27,6 +31,9 @@ export class SettingsPage {
   private toast = inject(ToastService);
   protected auth = inject(AuthService);
   private fb = inject(FormBuilder).nonNullable;
+
+  /** Shared demo accounts can't be changed, so one visitor can't lock out the next. */
+  protected locked = computed(() => !!this.auth.user()?.is_demo);
 
   // ---- Details
   protected details = this.fb.group({

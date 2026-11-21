@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AppNotification,
   Comment,
+  DemoInfo,
   Conversation,
   Counts,
   CursorPage,
@@ -47,6 +48,12 @@ export class Api {
   }
   logout(): Observable<void> {
     return this.http.post<void>(`${this.base}/logout`, {});
+  }
+  demo(): Observable<DemoInfo> {
+    return this.http.get<DemoInfo>(`${this.base}/demo`);
+  }
+  demoLogin(username: string): Observable<Data<Me>> {
+    return this.http.post<Data<Me>>(`${this.base}/demo/login`, { username });
   }
   allowedDomains(): Observable<Data<string[]>> {
     return this.http.get<Data<string[]>>(`${this.base}/allowed-domains`);

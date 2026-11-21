@@ -10,7 +10,7 @@ This is a ground-up rewrite of the original PHP Aviate as a modern, secure singl
 | API | Laravel 13 with Sanctum (cookie sessions) |
 | Real-time | Laravel Reverb (WebSockets) + Laravel Echo |
 | Database | PostgreSQL 17 |
-| Runtime | Docker Compose: nginx, php-fpm, queue worker, Reverb, Postgres |
+| Runtime | Docker Compose: Caddy (HTTPS), nginx, php-fpm, queue worker, scheduler, Reverb, Postgres |
 
 ## Features
 
@@ -55,7 +55,7 @@ You can also register your own account with any made-up address at an allowed do
 ## Running the tests
 
 ```bash
-# Backend (PHPUnit, 50+ tests). Uses its own in-memory SQLite database, never your real data.
+# Backend (PHPUnit, 55+ tests). Uses its own in-memory SQLite database, never your real data.
 docker compose run --rm api php artisan test
 
 # Front end (Vitest)
@@ -71,7 +71,7 @@ Built to be safe to show off:
 | SQL injection | Every query goes through Laravel's query builder/Eloquent with bound parameters. Search escapes `%` and `_`. |
 | Password storage | Argon2id (memory-hard, OWASP's first choice) via Laravel's `hashed` cast: 64 MB of memory and 4 passes per hash. Minimum 8 characters with letters and numbers. |
 | Session hijacking / CSRF | Sanctum SPA auth: HttpOnly, SameSite=Lax, encrypted session cookies, a CSRF token on every write, and a fresh session ID on login. |
-| Brute-force login | 5 attempts per email+IP per minute, plus per-IP limits on auth, posting and uploads. Proxy headers are only trusted when you configure `TRUSTED_PROXIES`, so the IP can't be faked. |
+| Brute-force login | 5 attempts per email+IP per minute, plus per-IP limits on auth, posting and uploads. On a public server, nginx only takes the visitor's IP from Caddy, which overwrites any forwarded-IP header a visitor sends, so it can't be faked. |
 | Account discovery | Login failures give the same message whether or not the email exists. |
 | Broken access control | Policies: only the author or profile owner can delete a post; only the commenter or post author can delete a comment; only the sender can delete a message. Messaging requires friendship. Users only ever see their own conversations and notifications. Each tested. |
 | Cross-site scripting | Angular escapes all user text; no `innerHTML`. Links are only made for `http(s)` URLs. YouTube embeds are built from a validated 11-character ID only. A strict Content-Security-Policy blocks inline scripts. |
@@ -81,21 +81,16 @@ Built to be safe to show off:
 | Clickjacking & friends | `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy, and a Permissions-Policy. |
 | Secrets in git | `.env` is git-ignored and generated per machine. The database isn't reachable from outside Docker. |
 
-## Deploying to a server (e.g. EC2)
+## Public demo
 
-1. Launch an Ubuntu instance (a `t3.small` or larger is comfortable) and install Docker Engine with the Compose plugin.
-2. In the security group, open port 22 to your IP, and 80/443 (or 8080) to whoever should reach the site.
-3. Clone the repo, run `./setup.sh`, then edit `.env` for the server's address:
-   ```ini
-   APP_URL=http://203.0.113.10:8080
-   SANCTUM_STATEFUL_DOMAINS=203.0.113.10:8080
-   REVERB_ALLOWED_ORIGINS=203.0.113.10
-   APP_ENV=production
-   COMPOSER_NO_DEV=1
-   SEED_DEMO_DATA=false        # or true for a demo server
-   ```
-4. `docker compose up -d --build`.
-5. **For anything public, put HTTPS in front** (for example Caddy, or an AWS load balancer with an ACM certificate). Then set `APP_URL=https://…`, `SESSION_SECURE_COOKIE=true`, `WEB_PORT=80`, and, behind a load balancer, `TRUSTED_PROXIES=*`.
+Set `DEMO_MODE=true` to run Aviate as a public demo:
+- The login page shows **Try the demo** buttons that sign visitors in as Maya or Marcus with one click.
+- The sample accounts' email, password and photo can't be changed, and they can't be closed, so no visitor can lock out the next one.
+- Every night at `DEMO_RESET_AT` (Eastern), a scheduled job wipes all accounts, posts, messages and uploads and restores the sample crew.
+
+## Deploying
+
+[DEPLOY.md](DEPLOY.md) walks through putting the demo online at `https://aviate.glofly.app` on a t3.micro EC2 instance. Caddy gets and renews the HTTPS certificate automatically.
 
 ## Developing without Docker
 

@@ -1,8 +1,10 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Demo servers wipe and re-seed every night (run by the "scheduler" container).
+Schedule::command('aviate:reset-demo', ['--force'])
+    ->dailyAt(config('aviate.demo.reset_at'))
+    ->timezone(config('aviate.demo.time_zone'))
+    ->when(fn () => (bool) config('aviate.demo.enabled'))
+    ->withoutOverlapping();

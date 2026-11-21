@@ -12,6 +12,8 @@ class MeResource extends UserResource
         return parent::toArray($request) + [
             'email' => $this->email,
             'joined_at' => $this->created_at?->toIso8601String(),
+            // True for the shared demo accounts on a demo server: the app locks their settings.
+            'is_demo' => $this->isLockedDemoAccount(),
         ];
     }
 }

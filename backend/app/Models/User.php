@@ -28,6 +28,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'closed_at' => 'datetime',
+            'is_demo' => 'boolean',
         ];
     }
 
@@ -84,6 +85,12 @@ class User extends Authenticatable
     }
 
     // ---- Friendship helpers --------------------------------------------
+
+    /** A sample account that anyone can sign in as while the site runs in demo mode. */
+    public function isLockedDemoAccount(): bool
+    {
+        return $this->is_demo && config('aviate.demo.enabled');
+    }
 
     public function isClosed(): bool
     {

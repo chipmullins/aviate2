@@ -5,6 +5,7 @@ import { Subject, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs
 import { Api } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { CountsService } from '../core/counts.service';
+import { DemoService } from '../core/demo.service';
 import { SearchResult } from '../core/models';
 import { Avatar } from '../shared/avatar';
 
@@ -17,6 +18,7 @@ import { Avatar } from '../shared/avatar';
 export class Shell {
   protected auth = inject(AuthService);
   protected counts = inject(CountsService);
+  protected demo = inject(DemoService);
   private api = inject(Api);
   private router = inject(Router);
   private host = inject(ElementRef<HTMLElement>);

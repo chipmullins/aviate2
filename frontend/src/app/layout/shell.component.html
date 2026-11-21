@@ -87,6 +87,17 @@
   </div>
 </header>
 
+@if (demo.enabled()) {
+  <div class="demo-banner" role="note">
+    <span aria-hidden="true">✈</span>
+    @if (auth.user()?.is_demo) {
+      You’re using a shared demo account. Explore freely: everything resets {{ demo.resetLabel() }}.
+    } @else {
+      This is the Aviate demo. Everything resets {{ demo.resetLabel() }}.
+    }
+  </div>
+}
+
 <main id="main">
   <router-outlet />
 </main>

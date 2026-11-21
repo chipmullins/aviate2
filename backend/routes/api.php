@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\CountsController;
+use App\Http\Controllers\Api\DemoController;
 use App\Http\Controllers\Api\FriendController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\MessageController;
@@ -19,7 +20,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
+    Route::post('demo/login', [DemoController::class, 'login']);
 });
+
+// Whether this server is a public demo, and which sample accounts to offer.
+Route::get('demo', [DemoController::class, 'show']);
 
 // Lets the sign-up form show which airlines are allowed.
 Route::get('allowed-domains', fn () => ['data' => config('aviate.allowed_email_domains')]);

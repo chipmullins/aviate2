@@ -26,6 +26,22 @@ return [
         'southwest.com' => 'Southwest Airlines',
     ],
 
+    /*
+    | Public demo mode (DEMO_MODE=true). Visitors can sign in as the sample crew with one click,
+    | the sample accounts can't be changed or closed, and the database and uploads are wiped and
+    | re-seeded every night at DEMO_RESET_AT (in DEMO_TIME_ZONE).
+    */
+    'demo' => [
+        'enabled' => (bool) env('DEMO_MODE', false),
+        'reset_at' => env('DEMO_RESET_AT', '04:00'),
+        'time_zone' => env('DEMO_TIME_ZONE', 'America/New_York'),
+        // Shown as "Try the demo" buttons on the login page, in this order.
+        'featured' => [
+            ['username' => 'maya.chen', 'blurb' => 'Delta flight attendant with a busy feed, friend requests and messages'],
+            ['username' => 'marcus.webb', 'blurb' => 'United pilot. Sign in as him in another window to see live messages'],
+        ],
+    ],
+
     'uploads' => [
         'max_kilobytes' => 5120,
         'post_image_max_dimension' => 1600,

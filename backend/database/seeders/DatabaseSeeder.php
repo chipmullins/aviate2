@@ -38,12 +38,13 @@ class DatabaseSeeder extends Seeder
             ['Lena', 'Novak', 'lena.novak@suncountry.com'],
         ];
 
-        $users = collect($people)->map(fn ($p) => User::create([
+        $users = collect($people)->map(fn ($p) => User::forceCreate([
             'first_name' => $p[0],
             'last_name' => $p[1],
             'username' => User::generateUsername($p[0], $p[1]),
             'email' => $p[2],
             'password' => self::DEMO_PASSWORD,
+            'is_demo' => true,
         ]));
 
         [$maya, $marcus, $priya, $diego, $hannah, $tom, $lena] = $users->all();
